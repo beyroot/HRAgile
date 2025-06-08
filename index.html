@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Compensation & Payroll Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header id="dashboard-header">
+        <div id="header-top-row">
+            <h1>HR Compensation & Payroll Dashboard</h1>
+            <div id="last-data-refresh-container">Last Data Refresh: <span id="last-data-refresh">Pending</span></div>
+        </div>
+        <div id="global-filters">
+            <div class="filter-group">
+                <label for="date-range-filter">Date Range:</label>
+                <select id="date-range-filter" name="date-range">
+                    <option value="ytd">YTD</option>
+                    <option value="last12months">Last 12 Months</option>
+                    <option value="q1_2025">Q1 2025</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <div id="custom-date-inputs" style="display: none;">
+                    <label for="custom-date-start">Start:</label>
+                    <input type="date" id="custom-date-start" name="custom-date-start">
+                    <label for="custom-date-end">End:</label>
+                    <input type="date" id="custom-date-end" name="custom-date-end">
+                </div>
+            </div>
+            <div class="filter-group">
+                <label for="department-filter">Department:</label>
+                <select id="department-filter" name="department" multiple>
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="job-level-filter">Job Level:</label>
+                <select id="job-level-filter" name="job-level" multiple>
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+        </div>
+    </header>
+    <section id="kpi-cards-container">
+        <div class="kpi-card" id="kpi-total-headcount">
+            <h4>Total Headcount</h4>
+            <div class="kpi-value">---</div>
+            <div class="kpi-trend"> </div>
+        </div>
+        <div class="kpi-card" id="kpi-total-payroll">
+            <h4>Total Annual Payroll</h4>
+            <div class="kpi-value">$---</div>
+            <div class="kpi-trend"> </div>
+        </div>
+        <div class="kpi-card" id="kpi-average-salary">
+            <h4>Average Salary</h4>
+            <div class="kpi-value">$---</div>
+            <div class="kpi-trend"> </div>
+        </div>
+        <div class="kpi-card" id="kpi-median-salary">
+            <h4>Median Salary</h4>
+            <div class="kpi-value">$---</div>
+            <div class="kpi-trend"> </div>
+        </div>
+        <div class="kpi-card" id="kpi-gender-pay-gap">
+            <h4>Gender Pay Gap</h4>
+            <div class="kpi-value">---%</div>
+            <div class="kpi-trend"> </div>
+        </div>
+    </section>
+    <section id="charts-container">
+        <div id="charts-grid">
+            <div class="chart-cell" id="chart-avg-salary-dept-container">
+                <h4>Average Salary by Department</h4>
+                <canvas id="chart-avg-salary-dept"></canvas>
+            </div>
+            <div class="chart-cell" id="chart-salary-distribution-container">
+                <h4>Salary Distribution</h4>
+                <canvas id="chart-salary-distribution"></canvas>
+            </div>
+            <div class="chart-cell" id="chart-payroll-trend-container">
+                <h4>Payroll Trend Over Time</h4>
+                <canvas id="chart-payroll-trend"></canvas>
+            </div>
+            <div class="chart-cell" id="chart-headcount-joblevel-container">
+                <h4>Headcount by Job Level</h4>
+                <canvas id="chart-headcount-joblevel"></canvas>
+            </div>
+        </div>
+    </section>
+    <section id="table-container">
+        <div id="search-bar-container">
+            <input type="text" id="employee-search-bar" placeholder="Search employees...">
+        </div>
+        <table id="employee-data-table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Department</th>
+                    <th>Job Title</th>
+                    <th>Hire Date</th>
+                    <th>Annual Salary ($)</th>
+                    <th>Gender</th>
+                </tr>
+            </thead>
+            <tbody id="employee-table-body">
+                <tr>
+                    <td colspan="7">Loading data...</td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="table-pagination-controls">
+            <button id="prev-page-button">Previous</button>
+            <span id="page-info">Page 1 of 1</span>
+            <button id="next-page-button">Next</button>
+        </div>
+    </section>
+    <script src="script.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+[
+  {
+    "employeeId": "E1001",
+    "fullName": "John Doe",
+    "department": "Engineering",
+    "jobTitle": "Software Engineer",
+    "jobLevel": "Senior",
+    "hireDate": "2022-08-15",
+    "annualSalary": 90000,
+    "gender": "Male"
+  },
+  {
+    "employeeId": "E1002",
+    "fullName": "Jane Smith",
+    "department": "Marketing",
+    "jobTitle": "Marketing Manager",
+    "jobLevel": "Manager",
+    "hireDate": "2021-03-01",
+    "annualSalary": 85000,
+    "gender": "Female"
+  },
+  {
+    "employeeId": "E1003",
+    "fullName": "Michael Brown",
+    "department": "Sales",
+    "jobTitle": "Sales Representative",
+    "jobLevel": "Mid-level",
+    "hireDate": "2023-01-20",
+    "annualSalary": 70000,
+    "gender": "Male"
+  },
+  {
+    "employeeId": "E1004",
+    "fullName": "Emily Davis",
+    "department": "HR",
+    "jobTitle": "HR Specialist",
+    "jobLevel": "Junior",
+    "hireDate": "2023-06-10",
+    "annualSalary": 60000,
+    "gender": "Female"
+  },
+  {
+    "employeeId": "E1005",
+    "fullName": "David Wilson",
+    "department": "Engineering",
+    "jobTitle": "DevOps Engineer",
+    "jobLevel": "Mid-level",
+    "hireDate": "2022-11-05",
+    "annualSalary": 82000,
+    "gender": "Male"
+  },
+  {
+    "employeeId": "E1006",
+    "fullName": "Sarah Miller",
+    "department": "Sales",
+    "jobTitle": "Account Executive",
+    "jobLevel": "Senior",
+    "hireDate": "2020-07-18",
+    "annualSalary": 95000,
+    "gender": "Female"
+  },
+  {
+    "employeeId": "E1007",
+    "fullName": "Chris Garcia",
+    "department": "Marketing",
+    "jobTitle": "Content Strategist",
+    "jobLevel": "Mid-level",
+    "hireDate": "2022-05-01",
+    "annualSalary": 75000,
+    "gender": "Non-binary"
+  },
+  {
+    "employeeId": "E1008",
+    "fullName": "Jessica Rodriguez",
+    "department": "Engineering",
+    "jobTitle": "QA Engineer",
+    "jobLevel": "Junior",
+    "hireDate": "2024-01-15",
+    "annualSalary": 65000,
+    "gender": "Female"
+  },
+  {
+    "employeeId": "E1009",
+    "fullName": "Kevin Martinez",
+    "department": "HR",
+    "jobTitle": "HR Director",
+    "jobLevel": "Director",
+    "hireDate": "2019-09-01",
+    "annualSalary": 120000,
+    "gender": "Male"
+  },
+  {
+    "employeeId": "E1010",
+    "fullName": "Linda Hernandez",
+    "department": "Sales",
+    "jobTitle": "Sales Manager",
+    "jobLevel": "Manager",
+    "hireDate": "2021-10-10",
+    "annualSalary": 100000,
+    "gender": "Female"
+  }
+]

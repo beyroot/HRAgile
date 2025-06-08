@@ -1,0 +1,226 @@
+/* Main stylesheet for the HR Compensation & Payroll Dashboard */
+
+:root {
+  --primary-color: #0A2F51; /* Deep Navy Blue */
+  --secondary-color: #0E6BA8; /* Medium Blue */
+  --accent-color: #4297A0; /* Teal */
+  --light-gray: #F0F0F0; /* Light Gray for backgrounds/borders */
+  --text-color: #333;
+  --white-color: #FFFFFF;
+  --kpi-border-color: #DDDDDD;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  background-color: var(--light-gray);
+  color: var(--text-color);
+  line-height: 1.6;
+}
+
+/* Header Styling */
+#dashboard-header {
+  background-color: var(--primary-color);
+  color: var(--white-color);
+  padding: 1em;
+}
+
+#header-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1em;
+}
+
+#dashboard-header h1 {
+  margin: 0;
+  font-size: 1.8em;
+}
+
+#last-data-refresh-container {
+  font-size: 0.9em;
+}
+
+/* Global Filters Styling */
+#global-filters {
+  display: flex;
+  gap: 1em;
+  flex-wrap: wrap;
+  padding: 0.5em 0;
+}
+
+#global-filters > .filter-group { /* Target direct children with class filter-group */
+  display: flex;
+  flex-direction: column; /* Stack label on top of select */
+  margin-right: 15px; /* Spacing between filter groups */
+}
+
+#global-filters label {
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  color: var(--light-gray); /* Lighter text on dark header */
+}
+
+#global-filters select,
+#global-filters input[type="date"] {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--kpi-border-color);
+}
+
+#custom-date-inputs {
+  display: none; /* Initially hidden, will be shown by JS */
+  gap: 10px; /* Spacing between date inputs */
+  align-items: center; /* Align items in the custom date row */
+}
+#custom-date-inputs label { /* Custom date labels need to be visible */
+    color: var(--light-gray);
+}
+
+
+/* Main Content Sections (General) */
+#kpi-cards-container,
+#charts-container,
+#table-container {
+  padding: 1em;
+}
+
+/* KPI Cards Styling */
+#kpi-cards-container {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.kpi-card {
+  background: var(--white-color);
+  border: 1px solid var(--kpi-border-color);
+  border-radius: 8px;
+  padding: 1em;
+  text-align: center;
+  flex-grow: 1;
+  min-width: 180px; /* Ensures cards don't get too small */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.kpi-card h4 {
+  margin-top: 0;
+  font-size: 1em;
+  color: var(--secondary-color);
+}
+
+.kpi-value {
+  font-size: 2em;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: 0.25em 0;
+}
+
+.kpi-trend {
+  font-size: 0.9em;
+  /* Style for trend arrows later if using text, or for icons */
+}
+
+/* Charts Area Styling */
+#charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); /* Responsive grid */
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.chart-cell {
+  background: var(--white-color);
+  border: 1px solid var(--kpi-border-color);
+  border-radius: 8px;
+  padding: 1em;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-cell h4 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 1em;
+  color: var(--secondary-color);
+}
+
+.chart-cell canvas {
+  max-width: 100%;
+  height: auto !important; /* Important to override potential inline styles from Chart.js if not configured correctly */
+}
+
+/* Table Styling */
+#search-bar-container {
+  margin-bottom: 1em;
+}
+
+#employee-search-bar {
+  padding: 8px;
+  width: 300px;
+  border-radius: 4px;
+  border: 1px solid var(--kpi-border-color);
+  box-sizing: border-box; /* Ensures padding doesn't add to width */
+}
+
+#employee-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--white-color);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px; /* May require overflow:hidden on a parent container if using border on td/th */
+  overflow: hidden; /* Clips child elements to the border-radius */
+}
+
+#employee-data-table th,
+#employee-data-table td {
+  border: 1px solid var(--kpi-border-color);
+  padding: 0.75em;
+  text-align: left;
+}
+
+#employee-data-table th {
+  background-color: var(--secondary-color);
+  color: var(--white-color);
+  font-weight: bold;
+}
+
+#employee-data-table tbody tr:nth-child(even) {
+  background-color: var(--light-gray);
+}
+
+#employee-data-table tbody tr:hover {
+  background-color: #e0e0e0; /* Slightly darker gray on hover */
+}
+
+/* Pagination Controls Styling */
+#table-pagination-controls {
+  margin-top: 1em;
+  text-align: center;
+}
+
+#table-pagination-controls button {
+  margin: 0 0.5em;
+  padding: 0.5em 1em;
+  border-radius: 4px;
+  border: 1px solid var(--secondary-color);
+  background-color: var(--secondary-color);
+  color: var(--white-color);
+  cursor: pointer;
+}
+#table-pagination-controls button:disabled {
+    background-color: var(--kpi-border-color);
+    border-color: var(--kpi-border-color);
+    color: var(--text-color);
+    cursor: not-allowed;
+}
+
+#table-pagination-controls span {
+  margin: 0 0.5em;
+  padding: 0.5em 1em;
+  /* To make it look consistent with buttons, but not clickable */
+  border-radius: 4px;
+  border: 1px solid transparent; /* Or var(--kpi-border-color) if you want a border */
+  color: var(--text-color);
+}
