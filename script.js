@@ -116,8 +116,9 @@ function applyFilters() {
     const customStartDate = customStartDateElement ? customStartDateElement.value : null;
     const customEndDateElement = document.getElementById('custom-date-end');
     const customEndDate = customEndDateElement ? customEndDateElement.value : null;
+    // Normalize current date to UTC midnight so comparisons are consistent
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     if (dateRangeValue) {
         currentFilteredData = currentFilteredData.filter(emp => {
@@ -125,15 +126,16 @@ function applyFilters() {
             hireDate.setUTCHours(0,0,0,0);
 
             if (dateRangeValue === "ytd") {
-                const startOfYear = new Date(today.getFullYear(), 0, 1);
+                // Use UTC dates for range boundaries
+                const startOfYear = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
                 return hireDate >= startOfYear && hireDate <= today;
             } else if (dateRangeValue === "last12months") {
                 const twelveMonthsAgo = new Date(today);
-                twelveMonthsAgo.setMonth(today.getMonth() - 12);
+                twelveMonthsAgo.setUTCMonth(today.getUTCMonth() - 12);
                 return hireDate >= twelveMonthsAgo && hireDate <= today;
             } else if (dateRangeValue === "q1_2025") {
-                const q1Start = new Date(2025, 0, 1);
-                const q1End = new Date(2025, 2, 31);
+                const q1Start = new Date(Date.UTC(2025, 0, 1));
+                const q1End = new Date(Date.UTC(2025, 2, 31));
                 return hireDate >= q1Start && hireDate <= q1End;
             } else if (dateRangeValue === "custom") {
                 const startDate = customStartDate ? new Date(customStartDate) : null;
