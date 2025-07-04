@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Dashboard - Analysis</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .filters-container { margin-bottom: 20px; padding: 15px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        .filters-container label { margin-right: 5px; }
+        .filters-container select, .filters-container input, .filters-container button { padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
+        .pivot-table-container { margin-top: 20px; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .pivot-table-container h3 { text-align: center; margin-top: 0; }
+        .export-buttons { margin-top: 15px; text-align: right; }
+        .export-buttons button { padding: 8px 15px; margin-left: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .export-buttons button:hover { background-color: #218838; }
+        table.pivot-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table.pivot-table th, table.pivot-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        table.pivot-table th { background-color: #e9ecef; }
+        table.pivot-table td.numeric { text-align: right; }
+        .drill-down-link { color: #007bff; text-decoration: underline; cursor: pointer; }
+        /* Styles for a potential JS-based pivot table library might be needed */
+    </style>
+    <!-- A JavaScript Pivot Table library could be included here e.g. PivotTable.js or WebDataRocks -->
+</head>
+<body>
+
+<div class="header">
+    <h1>Payroll Analysis</h1>
+</div>
+
+<div class="filters-container">
+    <div>
+        <label for="analysis-project-filter">Project(s):</label>
+        <select id="analysis-project-filter" multiple>
+            <!-- Options populated dynamically -->
+        </select>
+    </div>
+    <div>
+        <label for="analysis-date-range">Date Range:</label>
+        <select id="analysis-date-range-preset">
+            <option value="current_month">Current Month</option>
+            <option value="current_quarter">Current Quarter</option>
+            <option value="current_year">Current Year</option>
+            <option value="custom">Custom</option>
+        </select>
+        <input type="date" id="analysis-custom-start-date" style="display:none;">
+        <input type="date" id="analysis-custom-end-date" style="display:none;">
+    </div>
+    <button id="apply-analysis-filters">Apply Filters</button>
+</div>
+
+<div class="pivot-table-container">
+    <h3>Project × Month Analysis</h3>
+    <div class="export-buttons">
+        <button id="export-pivot-pdf" data-tooltip="Export the current view as PDF">Export PDF</button>
+        <button id="export-pivot-excel" data-tooltip="Export the current view as Excel (XLSX)">Export Excel</button>
+    </div>
+    <div id="pivot-table-render-area">
+        <!-- Pivot table will be rendered here by JavaScript -->
+        <p>Loading pivot data or select filters to view analysis...</p>
+        <!-- Example static table structure if not using a library -->
+        <!--
+        <table class="pivot-table">
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Month</th>
+                    <th>Σ Total Cost</th>
+                    <th>Avg Ratio</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Project Alpha</td>
+                    <td>2023-01</td>
+                    <td class="numeric">70,000.00</td>
+                    <td class="numeric drill-down-link" data-project="Project Alpha" data-month="2023-01">0.1400</td>
+                </tr>
+                </tbody>
+        </table>
+        -->
+    </div>
+</div>
+
+<script>
+    // --- DOM Elements ---
+    let projectFilter, datePresetFilter, customStartDate, customEndDate, applyButton;
+    let pivotRenderArea, exportPdfButton, exportExcelButton;
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        projectFilter = document.getElementById('analysis-project-filter');
+        datePresetFilter = document.getElementById('analysis-date-range-preset');
+        customStartDate = document.getElementById('analysis-custom-start-date');
+        customEndDate = document.getElementById('analysis-custom-end-date');
+        applyButton = document.getElementById('apply-analysis-filters');
+        pivotRenderArea = document.getElementById('pivot-table-render-area');
+        exportPdfButton = document.getElementById('export-pivot-pdf');
+        exportExcelButton = document.getElementById('export-pivot-excel');
+
+        // Populate project filter (dummy, should be from API /api/projects)
+        populateProjectFilter(['Project Alpha', 'Project Beta', 'Project Gamma', 'All Projects']);
+
+        // Event Listeners
+        datePresetFilter.addEventListener('change', handleDatePresetChange);
+        applyButton.addEventListener('click', fetchAndRenderPivotTable);
+        exportPdfButton.addEventListener('click', () => exportPivotData('pdf'));
+        exportExcelButton.addEventListener('click', () => exportPivotData('excel'));
+
+        // Set initial date preset and fetch data
+        setDefaultDateRange();
+        fetchAndRenderPivotTable();
+
+        // Event delegation for drill-down links
+        pivotRenderArea.addEventListener('click', function(event) {
+            if (event.target.classList.contains('drill-down-link')) {
+                const project = event.target.dataset.project;
+                const month = event.target.dataset.month;
+                // In a real app, this would navigate to a detailed view or open a modal
+                alert(`Drill down for Project: ${project}, Month: ${month}. Implement navigation to Data Explorer with these filters.`);
+            }
+        });
+    });
+
+    function populateProjectFilter(projects) {
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project === 'All Projects' ? 'all' : project;
+            option.textContent = project;
+            projectFilter.appendChild(option);
+        });
+    }
+
+    function handleDatePresetChange() {
+        if (datePresetFilter.value === 'custom') {
+            customStartDate.style.display = 'inline-block';
+            customEndDate.style.display = 'inline-block';
+        } else {
+            customStartDate.style.display = 'none';
+            customEndDate.style.display = 'none';
+        }
+    }
+
+    function setDefaultDateRange() {
+        // Default to current month
+        datePresetFilter.value = 'current_month';
+        handleDatePresetChange();
+    }
+
+    function getActiveFilters() {
+        const selectedProjects = Array.from(projectFilter.selectedOptions).map(opt => opt.value).filter(val => val !== 'all');
+
+        let startDate, endDate;
+        const preset = datePresetFilter.value;
+        const today = new Date();
+
+        switch (preset) {
+            case 'current_month':
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'current_quarter':
+                const quarter = Math.floor(today.getMonth() / 3);
+                startDate = new Date(today.getFullYear(), quarter * 3, 1);
+                endDate = new Date(today.getFullYear(), quarter * 3 + 3, 0);
+                break;
+            case 'current_year':
+                startDate = new Date(today.getFullYear(), 0, 1);
+                endDate = new Date(today.getFullYear(), 11, 31);
+                break;
+            case 'custom':
+                startDate = customStartDate.value ? new Date(customStartDate.value) : null;
+                endDate = customEndDate.value ? new Date(customEndDate.value) : null;
+                break;
+        }
+
+        return {
+            projects: selectedProjects, // Empty array means all projects for backend
+            startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+            endDate: endDate ? endDate.toISOString().split('T')[0] : null,
+        };
+    }
+
+    async function fetchAndRenderPivotTable() {
+        const filters = getActiveFilters();
+        if (filters.startDate === null || filters.endDate === null && datePresetFilter.value === 'custom') {
+            pivotRenderArea.innerHTML = "<p>Please select a valid custom date range.</p>";
+            return;
+        }
+        console.log("Fetching pivot data with filters:", filters);
+        pivotRenderArea.innerHTML = "<p>Loading pivot data...</p>";
+
+        // API Endpoint: GET /api/analysis/pivot-table (with filters as query params)
+        // Example: /api/analysis/pivot-table?projects=Alpha,Beta&startDate=2023-01-01&endDate=2023-03-31
+        try {
+            // const response = await fetch(`/api/analysis/pivot-table?projects=${filters.projects.join(',')}&startDate=${filters.startDate}&endDate=${filters.endDate}`);
+            // if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            // const pivotData = await response.json();
+
+            // Simulate API response
+            const pivotData = await simulatePivotApiCall(filters);
+
+            if (pivotData && pivotData.rows && pivotData.rows.length > 0) {
+                renderPivotTable(pivotData);
+            } else {
+                pivotRenderArea.innerHTML = "<p>No data available for the selected filters.</p>";
+            }
+        } catch (error) {
+            console.error("Error fetching pivot data:", error);
+            pivotRenderArea.innerHTML = `<p>Error loading data: ${error.message}.</p>`;
+        }
+    }
+
+    async function simulatePivotApiCall(filters) {
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Dummy data structure based on Project × Month with Σ Total Cost and Avg Ratio
+        // This data would come from an aggregation on `monthly_payroll_summary`
+        const sampleData = [
+            { project: "Project Alpha", month: "2023-01", totalCost: 70000.50, avgRatio: 0.1401 },
+            { project: "Project Alpha", month: "2023-02", totalCost: 72000.00, avgRatio: 0.1420 },
+            { project: "Project Beta",  month: "2023-01", totalCost: 65000.00, avgRatio: 0.1350 },
+            { project: "Project Beta",  month: "2023-02", totalCost: 68000.75, avgRatio: 0.1380 },
+            { project: "Project Gamma", month: "2023-01", totalCost: 80000.00, avgRatio: 0.1500 },
+        ];
+
+        // Apply filters (simplified client-side simulation for demo)
+        let filteredData = sampleData.filter(row => {
+            const rowDate = new Date(row.month + "-01"); // Assuming month is YYYY-MM
+            const projectMatch = filters.projects.length === 0 || filters.projects.includes(row.project);
+            const startDateMatch = !filters.startDate || rowDate >= new Date(filters.startDate);
+            const endDateMatch = !filters.endDate || rowDate <= new Date(filters.endDate);
+            return projectMatch && startDateMatch && endDateMatch;
+        });
+
+        return {
+            // This structure might be what a JS pivot library expects, or what your manual render function uses
+            // For a simple table, a list of rows is fine.
+            // dimensions: [{id: 'project', caption: 'Project'}, {id: 'month', caption: 'Month'}],
+            // measures: [{id: 'totalCost', caption: 'Σ Total Cost', aggregate: 'sum'}, {id: 'avgRatio', caption: 'Avg Ratio', aggregate: 'average'}],
+            rows: filteredData
+        };
+    }
+
+    function renderPivotTable(data) {
+        // This function would ideally use a JS pivot table library.
+        // For now, a simple HTML table:
+        let html = `<table class="pivot-table">
+                        <thead>
+                            <tr>
+                                <th>Project</th>
+                                <th>Month</th>
+                                <th>Σ Total Cost</th>
+                                <th>Avg Ratio</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+        data.rows.forEach(row => {
+            html += `<tr>
+                        <td>${row.project}</td>
+                        <td>${row.month}</td>
+                        <td class="numeric">${formatCurrency(row.totalCost)}</td>
+                        <td class="numeric drill-down-link" data-project="${row.project}" data-month="${row.month}" title="Click to see details for ${row.project} in ${row.month}">${parseFloat(row.avgRatio).toFixed(4)}</td>
+                     </tr>`;
+        });
+
+        html += `   </tbody>
+                  </table>`;
+        pivotRenderArea.innerHTML = html;
+    }
+
+    function exportPivotData(format) {
+        const filters = getActiveFilters();
+        // Actual implementation would make an API call:
+        // GET /api/analysis/pivot-table/export?format=pdf&projects=...&startDate=...&endDate=...
+        // The backend would generate the file and trigger a download.
+        alert(`Exporting pivot table data as ${format.toUpperCase()} with filters:\nProjects: ${filters.projects.join(', ') || 'All'}\nDate: ${filters.startDate} to ${filters.endDate}\n(Conceptual - requires backend implementation)`);
+
+        // For client-side generation (simpler, but less robust for PDF):
+        // if (format === 'excel') {
+        //    // Use a library like SheetJS to generate Excel from table data
+        // } else if (format === 'pdf') {
+        //    // Use a library like jsPDF with jsPDF-AutoTable to generate PDF
+        // }
+    }
+
+    // --- Utility Functions ---
+    function formatCurrency(value) {
+        if (value === null || value === undefined) return 'N/A';
+        return Number(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' }); // Adjust as needed
+    }
+
+    // Basic tooltip (re-using from overview, or use a library)
+    document.addEventListener('mouseover', function(event) {
+        const target = event.target.closest('[data-tooltip]');
+        if (target) {
+            // ... (tooltip creation logic as in overview.html) ...
+        }
+    });
+    document.addEventListener('mouseout', function(event) {
+        const target = event.target.closest('[data-tooltip]');
+        if (target) {
+            // ... (tooltip hiding logic) ...
+        }
+    });
+
+</script>
+
+</body>
+</html>

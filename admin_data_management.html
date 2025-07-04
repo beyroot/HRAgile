@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Dashboard - Admin / Data Management</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .admin-section { margin-bottom: 30px; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .admin-section h2 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+
+        table.admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table.admin-table th, table.admin-table td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 0.9em; }
+        table.admin-table th { background-color: #e9ecef; }
+        table.admin-table td .action-button { padding: 5px 10px; font-size: 0.8em; margin-right: 5px; cursor: pointer; }
+        .status-success { color: green; font-weight: bold; }
+        .status-failed { color: red; font-weight: bold; }
+        .status-partial { color: orange; font-weight: bold; }
+
+        .log-level-ERROR { color: red; font-weight: bold; }
+        .log-level-WARNING { color: orange; }
+        .log-level-INFO { color: blue; }
+
+        .pagination-controls { margin-top: 15px; text-align: center; }
+        .pagination-controls button, .pagination-controls span { margin: 0 5px; padding: 5px 10px; }
+
+        .filters { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+        .filters label { font-weight: bold; }
+        .filters input, .filters select { padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Admin & Data Management</h1>
+</div>
+
+<!-- Section for File Upload History -->
+<div class="admin-section" id="upload-history-section">
+    <h2>File Upload History</h2>
+    <div class="filters">
+        <label for="upload-status-filter">Status:</label>
+        <select id="upload-status-filter">
+            <option value="">All</option>
+            <option value="Success">Success</option>
+            <option value="Failed">Failed</option>
+            <option value="Partial Success">Partial Success</option>
+        </select>
+        <button id="apply-upload-filters">Filter</button>
+    </div>
+    <table class="admin-table" id="upload-history-table">
+        <thead>
+            <tr>
+                <th>Upload ID</th>
+                <th>File Name</th>
+                <th>Timestamp</th>
+                <th>User</th>
+                <th>Status</th>
+                <th>Mode</th>
+                <th>Processed</th>
+                <th>Failed</th>
+                <th>Notes</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows populated by JavaScript -->
+            <!-- Example Row:
+            <tr>
+                <td>101</td>
+                <td>payroll_jan_2023.xlsx</td>
+                <td>2023-02-01 10:00:00</td>
+                <td>jules.doe</td>
+                <td class="status-success">Success</td>
+                <td>Append</td>
+                <td>150</td>
+                <td>0</td>
+                <td>Upload completed.</td>
+                <td><button class="action-button rollback-button" data-upload-id="101" title="Rollback this upload (if possible)">Rollback</button></td>
+            </tr>
+            -->
+        </tbody>
+    </table>
+    <div class="pagination-controls" id="upload-history-pagination">
+        <!-- Pagination for upload history -->
+    </div>
+</div>
+
+<!-- Section for Error Logs -->
+<div class="admin-section" id="error-logs-section">
+    <h2>System Logs (Errors & Warnings)</h2>
+    <div class="filters">
+        <label for="log-level-filter">Level:</label>
+        <select id="log-level-filter">
+            <option value="">All</option>
+            <option value="ERROR">ERROR</option>
+            <option value="WARNING">WARNING</option>
+            <option value="INFO">INFO</option>
+        </select>
+        <label for="log-source-filter">Source:</label>
+        <input type="text" id="log-source-filter" placeholder="e.g., ETL, API">
+        <button id="apply-log-filters">Filter</button>
+    </div>
+    <table class="admin-table" id="error-logs-table">
+        <thead>
+            <tr>
+                <th>Log ID</th>
+                <th>Timestamp</th>
+                <th>Level</th>
+                <th>Source</th>
+                <th>Message</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows populated by JavaScript -->
+            <!-- Example Row:
+            <tr>
+                <td>505</td>
+                <td>2023-02-01 10:05:00</td>
+                <td class="log-level-ERROR">ERROR</td>
+                <td>ETL</td>
+                <td>Failed to process row 25 in payroll_jan_2023.xlsx</td>
+                <td><button class="action-button view-details-button" data-log-id="505">View JSON</button></td>
+            </tr>
+            -->
+        </tbody>
+    </table>
+    <div class="pagination-controls" id="error-logs-pagination">
+        <!-- Pagination for error logs -->
+    </div>
+</div>
+
+<!-- Section for Application Settings -->
+<div class="admin-section" id="app-settings-section">
+    <h2>Application Settings</h2>
+    <div id="settings-form-container">
+        <!-- Settings will be loaded here, e.g., Ratio Thresholds -->
+        <div class="setting-item">
+            <h3>Payroll Ratio Thresholds</h3>
+            <p>Define thresholds for conditional formatting of the 'Ratio' column.</p>
+            <label for="ratio-low-threshold">Low Ratio Upper Bound (e.g., Green <= value):</label>
+            <input type="number" step="0.0001" id="ratio-low-threshold" name="ratio_low_threshold">
+            <br>
+            <label for="ratio-medium-threshold">Medium Ratio Upper Bound (e.g., Yellow <= value, above Low):</label>
+            <input type="number" step="0.0001" id="ratio-medium-threshold" name="ratio_medium_threshold">
+            <br>
+            <small>Values above "Medium Ratio Upper Bound" will be considered High (e.g., Red).</small>
+            <br><br>
+            <button id="save-ratio-thresholds">Save Ratio Thresholds</button>
+            <p id="ratio-settings-feedback"></p>
+        </div>
+        <!-- Other settings could be added here -->
+    </div>
+</div>
+
+<script>
+    // --- Configuration & State ---
+    let uploadHistoryCurrentPage = 1;
+    let logsCurrentPage = 1;
+
+    // --- DOM Elements ---
+    // Upload History
+    let uploadStatusFilter, applyUploadFiltersButton, uploadHistoryTableBody, uploadHistoryPagination;
+    // System Logs
+    let logLevelFilter, logSourceFilter, applyLogFiltersButton, errorLogsTableBody, errorLogsPagination;
+    // App Settings
+    let ratioLowThresholdInput, ratioMediumThresholdInput, saveRatioThresholdsButton, ratioSettingsFeedback;
+
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Upload History Elements
+        uploadStatusFilter = document.getElementById('upload-status-filter');
+        applyUploadFiltersButton = document.getElementById('apply-upload-filters');
+        uploadHistoryTableBody = document.querySelector('#upload-history-table tbody');
+        uploadHistoryPagination = document.getElementById('upload-history-pagination');
+
+        // System Logs Elements
+        logLevelFilter = document.getElementById('log-level-filter');
+        logSourceFilter = document.getElementById('log-source-filter');
+        applyLogFiltersButton = document.getElementById('apply-log-filters');
+        errorLogsTableBody = document.querySelector('#error-logs-table tbody');
+        errorLogsPagination = document.getElementById('error-logs-pagination');
+
+        // App Settings Elements
+        ratioLowThresholdInput = document.getElementById('ratio-low-threshold');
+        ratioMediumThresholdInput = document.getElementById('ratio-medium-threshold');
+        saveRatioThresholdsButton = document.getElementById('save-ratio-thresholds');
+        ratioSettingsFeedback = document.getElementById('ratio-settings-feedback');
+
+        // Event Listeners
+        applyUploadFiltersButton.addEventListener('click', () => { uploadHistoryCurrentPage = 1; fetchUploadHistory(); });
+        applyLogFiltersButton.addEventListener('click', () => { logsCurrentPage = 1; fetchSystemLogs(); });
+        saveRatioThresholdsButton.addEventListener('click', saveRatioThresholds);
+
+
+        uploadHistoryTableBody.addEventListener('click', handleUploadActionClick);
+        errorLogsTableBody.addEventListener('click', handleLogActionClick);
+
+        // Initial data load
+        fetchUploadHistory();
+        fetchSystemLogs();
+        loadRatioThresholds();
+    });
+
+    // --- App Settings Functions ---
+    async function loadRatioThresholds() {
+        console.log("Loading ratio thresholds...");
+        // API Call: GET /api/admin/settings/payroll_ratio_thresholds
+        // const response = await fetch('/api/admin/settings/payroll_ratio_thresholds');
+        // if (!response.ok) {
+        //     ratioSettingsFeedback.textContent = 'Error loading settings.';
+        //     console.error('Failed to load ratio thresholds', response);
+        //     return;
+        // }
+        // const settings = await response.json();
+
+        // Simulated API response
+        const settings = await simulateGetSettingsApi('payroll_ratio_thresholds');
+
+        if (settings && settings.setting_value) {
+            ratioLowThresholdInput.value = settings.setting_value.low_threshold_upper_bound;
+            ratioMediumThresholdInput.value = settings.setting_value.medium_threshold_upper_bound;
+            ratioSettingsFeedback.textContent = 'Current settings loaded.';
+        } else {
+            ratioSettingsFeedback.textContent = 'Could not load settings or settings not found.';
+        }
+    }
+
+    async function saveRatioThresholds() {
+        const lowThreshold = parseFloat(ratioLowThresholdInput.value);
+        const mediumThreshold = parseFloat(ratioMediumThresholdInput.value);
+
+        if (isNaN(lowThreshold) || isNaN(mediumThreshold)) {
+            ratioSettingsFeedback.textContent = 'Invalid input. Please enter numbers.';
+            return;
+        }
+        if (lowThreshold >= mediumThreshold) {
+            ratioSettingsFeedback.textContent = 'Low threshold must be less than medium threshold.';
+            return;
+        }
+
+        const newSettingsValue = {
+            low_threshold_upper_bound: lowThreshold,
+            medium_threshold_upper_bound: mediumThreshold
+        };
+
+        console.log("Saving ratio thresholds:", newSettingsValue);
+        ratioSettingsFeedback.textContent = 'Saving...';
+
+        // API Call: PUT /api/admin/settings/payroll_ratio_thresholds
+        // const response = await fetch('/api/admin/settings/payroll_ratio_thresholds', {
+        //     method: 'PUT',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({ setting_value: newSettingsValue, setting_name: "Payroll Ratio Conditional Formatting Thresholds" }) // include name if creating/updating
+        // });
+
+        // if (response.ok) {
+        //     ratioSettingsFeedback.textContent = 'Settings saved successfully!';
+        //     setTimeout(() => ratioSettingsFeedback.textContent = '', 3000);
+        // } else {
+        //     const errorData = await response.json();
+        //     ratioSettingsFeedback.textContent = `Error saving settings: ${errorData.error || response.statusText}`;
+        // }
+
+        // Simulated API Call
+        const success = await simulateUpdateSettingsApi('payroll_ratio_thresholds', newSettingsValue);
+        if (success) {
+            ratioSettingsFeedback.textContent = 'Settings saved successfully!';
+            setTimeout(() => ratioSettingsFeedback.textContent = '', 3000);
+        } else {
+             ratioSettingsFeedback.textContent = `Error saving settings.`;
+        }
+    }
+
+    async function simulateGetSettingsApi(settingKey) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (settingKey === 'payroll_ratio_thresholds') {
+            // This would typically come from a global variable or another store updated by simulateUpdateSettingsApi
+            // For now, return a default or last "saved" value.
+            return {
+                setting_key: 'payroll_ratio_thresholds',
+                setting_name: 'Payroll Ratio Conditional Formatting Thresholds',
+                setting_value: window.currentRatioThresholds || { low_threshold_upper_bound: 0.10, medium_threshold_upper_bound: 0.15 },
+                description: 'Defines thresholds for payroll ratio categories.'
+            };
+        }
+        return null;
+    }
+
+    async function simulateUpdateSettingsApi(settingKey, value) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (settingKey === 'payroll_ratio_thresholds') {
+            console.log("Simulated: Settings updated for", settingKey, "to", value);
+            window.currentRatioThresholds = value; // Store globally for simulation persistence
+            return true;
+        }
+        return false;
+    }
+
+
+    // --- Upload History Functions ---
+    async function fetchUploadHistory() {
+        const status = uploadStatusFilter.value;
+        console.log(`Fetching upload history: page ${uploadHistoryCurrentPage}, status ${status}`);
+        // API Call: GET /api/admin/upload-history?page=<page>&status=<status>&limit=10
+        // const response = await fetch(`/api/admin/upload-history?page=${uploadHistoryCurrentPage}&status=${status}&limit=10`);
+        // const result = await response.json(); // { data: [], pagination: {} }
+
+        // Simulated data
+        const result = await simulateUploadHistoryApi(uploadHistoryCurrentPage, status);
+
+        renderTable(uploadHistoryTableBody, result.data, createUploadHistoryRow, uploadHistoryPagination, result.pagination, fetchUploadHistory);
+    }
+
+    function createUploadHistoryRow(item) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.upload_id}</td>
+            <td>${item.file_name}</td>
+            <td>${new Date(item.upload_timestamp).toLocaleString()}</td>
+            <td>${item.user_who_uploaded || 'N/A'}</td>
+            <td class="status-${item.status.toLowerCase().replace(' ', '-')}">${item.status}</td>
+            <td>${item.upload_mode || 'N/A'}</td>
+            <td>${item.records_processed || 0}</td>
+            <td>${item.records_failed || 0}</td>
+            <td>${item.notes || ''}</td>
+            <td>
+                ${item.status === 'Success' || item.status === 'Partial Success' ?
+                    `<button class="action-button rollback-button" data-upload-id="${item.upload_id}" title="Attempt to rollback this upload">Rollback</button>` : ''}
+            </td>
+        `;
+        return row;
+    }
+
+    async function simulateUploadHistoryApi(page, status) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const dummyHistory = [
+            { upload_id: 101, file_name: 'payroll_jan_2023.xlsx', upload_timestamp: '2023-02-01T10:00:00Z', user_who_uploaded: 'j.doe', status: 'Success', upload_mode: 'Append', records_processed: 150, records_failed: 0, notes: 'Completed.' },
+            { upload_id: 102, file_name: 'payroll_feb_2023.xlsx', upload_timestamp: '2023-03-01T11:00:00Z', user_who_uploaded: 'a.smith', status: 'Failed', upload_mode: 'Append', records_processed: 0, records_failed: 10, notes: 'Invalid column header: "SalaryTotal".' },
+            { upload_id: 103, file_name: 'payroll_mar_2023.xlsx', upload_timestamp: '2023-04-01T09:30:00Z', user_who_uploaded: 'j.doe', status: 'Partial Success', upload_mode: 'Replace', records_processed: 120, records_failed: 5, notes: '5 rows had date format issues.' },
+        ];
+        let filtered = status ? dummyHistory.filter(item => item.status === status) : dummyHistory;
+        return { data: filtered.slice(0,10), pagination: { currentPage: page, totalPages: Math.ceil(filtered.length/10) || 1, totalItems: filtered.length} };
+    }
+
+    function handleUploadActionClick(event) {
+        if (event.target.classList.contains('rollback-button')) {
+            const uploadId = event.target.dataset.uploadId;
+            if (confirm(`Are you sure you want to attempt to rollback upload ID ${uploadId}? This action might be irreversible or require manual intervention.`)) {
+                // API Call: POST /api/admin/uploads/${uploadId}/rollback
+                console.log(`Attempting rollback for upload ID: ${uploadId}`);
+                alert(`Rollback initiated for upload ${uploadId}. (Conceptual - requires backend implementation)`);
+                // Potentially refresh history after action
+                // fetchUploadHistory();
+            }
+        }
+    }
+
+    // --- System Logs Functions ---
+    async function fetchSystemLogs() {
+        const level = logLevelFilter.value;
+        const source = logSourceFilter.value;
+        console.log(`Fetching system logs: page ${logsCurrentPage}, level ${level}, source ${source}`);
+        // API Call: GET /api/admin/system-logs?page=<page>&level=<level>&source=<source>&limit=15
+        // const response = await fetch(`/api/admin/system-logs?page=${logsCurrentPage}&level=${level}&source=${source}&limit=15`);
+        // const result = await response.json(); // { data: [], pagination: {} }
+
+        // Simulated data
+        const result = await simulateSystemLogsApi(logsCurrentPage, level, source);
+
+        renderTable(errorLogsTableBody, result.data, createSystemLogRow, errorLogsPagination, result.pagination, fetchSystemLogs);
+    }
+
+    function createSystemLogRow(item) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.log_id}</td>
+            <td>${new Date(item.log_timestamp).toLocaleString()}</td>
+            <td class="log-level-${item.log_level}">${item.log_level}</td>
+            <td>${item.source}</td>
+            <td>${item.message}</td>
+            <td>
+                ${item.details ? `<button class="action-button view-details-button" data-log-id="${item.log_id}" data-details='${JSON.stringify(item.details)}'>View Details</button>` : ''}
+            </td>
+        `;
+        return row;
+    }
+
+    async function simulateSystemLogsApi(page, level, source) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const dummyLogs = [
+            { log_id: 505, log_timestamp: '2023-03-01T11:00:05Z', log_level: 'ERROR', source: 'ETL', message: 'Failed to process row 25 in payroll_feb_2023.xlsx', details: { error: 'ValueError', file_row: 25, column: 'date' } },
+            { log_id: 506, log_timestamp: '2023-04-01T09:30:10Z', log_level: 'WARNING', source: 'ETL', message: 'Date format issue for row 12', details: { file_row: 12, value: '2023/03/15' } },
+            { log_id: 507, log_timestamp: '2023-04-02T14:00:00Z', log_level: 'INFO', source: 'API', message: 'User j.doe accessed /api/overview/kpis', details: null },
+        ];
+        let filtered = dummyLogs;
+        if (level) filtered = filtered.filter(item => item.log_level === level);
+        if (source) filtered = filtered.filter(item => item.source.toLowerCase().includes(source.toLowerCase()));
+        return { data: filtered.slice(0,15), pagination: { currentPage: page, totalPages: Math.ceil(filtered.length/15) || 1, totalItems: filtered.length} };
+    }
+
+    function handleLogActionClick(event) {
+        if (event.target.classList.contains('view-details-button')) {
+            const details = JSON.parse(event.target.dataset.details);
+            alert("Log Details:\n" + JSON.stringify(details, null, 2));
+        }
+    }
+
+    // --- Generic Table Rendering & Pagination ---
+    function renderTable(tbodyElement, data, rowCreatorFunction, paginationElement, paginationData, fetchFunction) {
+        tbodyElement.innerHTML = ''; // Clear existing rows
+        if (data && data.length > 0) {
+            data.forEach(item => tbodyElement.appendChild(rowCreatorFunction(item)));
+        } else {
+            const cols = tbodyElement.parentElement.querySelector('thead tr').childElementCount;
+            tbodyElement.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;">No data available.</td></tr>`;
+        }
+        renderPagination(paginationElement, paginationData, fetchFunction);
+    }
+
+    function renderPagination(container, { currentPage, totalPages }, fetchFunctionForPage) {
+        container.innerHTML = '';
+        if (totalPages <= 1) return;
+
+        const prevButton = document.createElement('button');
+        prevButton.textContent = 'Previous';
+        prevButton.disabled = currentPage === 1;
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                if (container.id.includes('upload')) uploadHistoryCurrentPage--; else logsCurrentPage--;
+                fetchFunctionForPage();
+            }
+        });
+
+        const pageInfo = document.createElement('span');
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+        const nextButton = document.createElement('button');
+        nextButton.textContent = 'Next';
+        nextButton.disabled = currentPage === totalPages;
+        nextButton.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                if (container.id.includes('upload')) uploadHistoryCurrentPage++; else logsCurrentPage++;
+                fetchFunctionForPage();
+            }
+        });
+
+        container.appendChild(prevButton);
+        container.appendChild(pageInfo);
+        container.appendChild(nextButton);
+    }
+
+</script>
+
+</body>
+</html>

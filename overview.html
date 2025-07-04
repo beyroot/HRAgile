@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Dashboard - Overview</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .filters { margin-bottom: 20px; padding: 15px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .filters label { margin-right: 10px; }
+        .filters select, .filters input[type="date"] { padding: 8px; border-radius: 4px; border: 1px solid #ddd; margin-right: 15px; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .kpi-card h3 { margin-top: 0; font-size: 1.1em; color: #555; }
+        .kpi-card .value { font-size: 2em; font-weight: bold; color: #007bff; margin: 10px 0; }
+        .kpi-card .note { font-size: 0.9em; color: #777; }
+        .chart-container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .chart-container h3 { text-align: center; margin-top: 0; }
+        /* Basic responsive for KPI cards */
+        @media (max-width: 768px) {
+            .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+            .filters select, .filters input[type="date"] { width: calc(50% - 20px); margin-bottom: 10px; }
+        }
+        @media (max-width: 480px) {
+            .kpi-grid { grid-template-columns: 1fr; } /* Stack KPI cards on very small screens */
+            .filters select, .filters input[type="date"] { width: calc(100% - 20px); }
+        }
+    </style>
+    <!-- Charting library (e.g., Chart.js) would be included here -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
+</head><body>
+
+<div class="header">
+    <h1>Payroll Overview</h1>
+</div>
+
+<div class="filters">
+    <label for="project-filter">Project:</label>
+    <select id="project-filter" multiple>
+        <!-- Options will be populated dynamically -->
+        <option value="all">All Projects</option>
+    </select>
+
+    <label for="date-range-start">Date Range:</label>
+    <input type="date" id="date-range-start">
+    <span>to</span>
+    <input type="date" id="date-range-end">
+    <button id="apply-filters">Apply Filters</button>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi-card" id="kpi-total-gross-current-month">
+        <h3>Total Gross Salary (Current Month)</h3>
+        <p class="value" data-tooltip="Σ Total Gross Salary for the current calendar month">N/A</p>
+        <p class="note">Based on all projects</p>
+    </div>
+    <div class="kpi-card" id="kpi-total-cost">
+        <h3>Total Cost (Filtered Period)</h3>
+        <p class="value" data-tooltip="Σ Total Cost for the selected period and projects">N/A</p>
+        <p class="note">Respects global filters</p>
+    </div>
+    <div class="kpi-card" id="kpi-avg-ratio">
+        <h3>Average Ratio (Filtered Period)</h3>
+        <p class="value" data-tooltip="Average Ratio for the selected period and projects">N/A</p>
+        <p class="note">Respects global filters</p>
+    </div>
+    <div class="kpi-card" id="kpi-variable-pct">
+        <h3>Variable Salary % of Gross (Filtered Period)</h3>
+        <p class="value" data-tooltip="% Gross Variable Salary of Total Gross Salary for the selected period and projects">N/A</p>
+        <p class="note">Respects global filters</p>
+    </div>
+</div>
+
+<div class="charts-section">
+    <div class="chart-container" id="chart-monthly-total-gross">
+        <h3>Monthly Trend - Total Gross Salary</h3>
+        <canvas id="monthlyTotalGrossChart"></canvas> <!-- Placeholder for Chart.js canvas -->
+    </div>
+    <div class="chart-container" id="chart-monthly-total-cost">
+        <h3>Monthly Trend - Total Cost</h3>
+        <canvas id="monthlyTotalCostChart"></canvas> <!-- Placeholder for Chart.js canvas -->
+    </div>
+    <div class="chart-container" id="chart-fixed-vs-variable">
+        <h3>Monthly Fixed vs. Variable Salary</h3>
+        <canvas id="fixedVsVariableChart"></canvas> <!-- Placeholder for Chart.js canvas -->
+    </div>
+</div>
+
+<script>
+    // --- Global Variables ---
+    let projectFilterElement, dateRangeStartElement, dateRangeEndElement, applyFiltersButton;
+    let kpiTotalGrossCurrentMonth, kpiTotalCost, kpiAvgRatio, kpiVariablePct;
+    let monthlyTotalGrossChartInstance, monthlyTotalCostChartInstance, fixedVsVariableChartInstance;
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Filter Elements
+        projectFilterElement = document.getElementById('project-filter');
+        dateRangeStartElement = document.getElementById('date-range-start');
+        dateRangeEndElement = document.getElementById('date-range-end');
+        applyFiltersButton = document.getElementById('apply-filters');
+
+        // Initialize KPI Elements
+        kpiTotalGrossCurrentMonth = document.querySelector('#kpi-total-gross-current-month .value');
+        kpiTotalCost = document.querySelector('#kpi-total-cost .value');
+        kpiAvgRatio = document.querySelector('#kpi-avg-ratio .value');
+        kpiVariablePct = document.querySelector('#kpi-variable-pct .value');
+
+        // Set default date range (e.g., current month)
+        const today = new Date();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+        dateRangeStartElement.value = firstDayOfMonth;
+        dateRangeEndElement.value = lastDayOfMonth;
+
+        // Populate Project Filter (dummy data, should come from API)
+        populateProjectFilter(['Project Alpha', 'Project Beta', 'Project Gamma']);
+
+        // Add Event Listeners
+        applyFiltersButton.addEventListener('click', applyAndFetchData);
+
+        // Initial data load
+        applyAndFetchData();
+
+        // Initialize charts (conceptual, actual charting library calls would be here)
+        initializeCharts();
+    });
+
+    // --- Filter Logic ---
+    function populateProjectFilter(projects) {
+        projects.forEach(project => {
+            const option = document.createElement('option');
+            option.value = project;
+            option.textContent = project;
+            projectFilterElement.appendChild(option);
+        });
+        // In a real app, you might use a multi-select library here
+    }
+
+    function getSelectedProjects() {
+        const selectedOptions = Array.from(projectFilterElement.selectedOptions);
+        const projects = selectedOptions.map(opt => opt.value);
+        if (projects.includes('all') || projects.length === 0) {
+            return []; // Empty array means all projects for the backend
+        }
+        return projects;
+    }
+
+    // --- Data Fetching and Updating ---
+    async function applyAndFetchData() {
+        const filters = {
+            projects: getSelectedProjects(),
+            startDate: dateRangeStartElement.value,
+            endDate: dateRangeEndElement.value
+        };
+
+        console.log("Applying filters:", filters);
+
+        // Fetch data for each KPI and chart
+        // These would be separate API calls in a real app or a combined one
+        fetchKpiData(filters);
+        fetchChartData(filters);
+    }
+
+    async function fetchKpiData(filters) {
+        // Simulate API call
+        console.log("Fetching KPI data with filters:", filters);
+
+        // API Endpoint: /api/overview/kpis (POST with filters in body or GET with query params)
+        // Example: GET /api/overview/kpis?projects=Project Alpha&startDate=2023-01-01&endDate=2023-01-31
+
+        // Dummy data for KPIs
+        const kpiData = {
+            totalGrossCurrentMonth: 125000.50, // This one might ignore date filters and always use current month
+            totalCost: 180000.75,
+            avgRatio: 0.1532,
+            variablePct: 12.5
+        };
+
+        // Update KPI cards
+        kpiTotalGrossCurrentMonth.textContent = formatCurrency(kpiData.totalGrossCurrentMonth);
+        kpiTotalCost.textContent = formatCurrency(kpiData.totalCost);
+        kpiAvgRatio.textContent = parseFloat(kpiData.avgRatio).toFixed(4);
+        kpiVariablePct.textContent = `${parseFloat(kpiData.variablePct).toFixed(1)}%`;
+
+        // Update notes if necessary (e.g., which projects are included)
+        document.querySelector('#kpi-total-gross-current-month .note').textContent = `For current month (all projects)`;
+        const filterNote = filters.projects.length > 0 ? filters.projects.join(', ') : 'All projects';
+        document.querySelector('#kpi-total-cost .note').textContent = `Period: ${filters.startDate} to ${filters.endDate}, Projects: ${filterNote}`;
+        document.querySelector('#kpi-avg-ratio .note').textContent = `Period: ${filters.startDate} to ${filters.endDate}, Projects: ${filterNote}`;
+        document.querySelector('#kpi-variable-pct .note').textContent = `Period: ${filters.startDate} to ${filters.endDate}, Projects: ${filterNote}`;
+    }
+
+    async function fetchChartData(filters) {
+        // Simulate API calls for chart data
+        console.log("Fetching Chart data with filters:", filters);
+
+        // API Endpoint: /api/overview/charts/monthly-gross-salary (GET with query params)
+        // API Endpoint: /api/overview/charts/monthly-total-cost (GET with query params)
+        // API Endpoint: /api/overview/charts/monthly-fixed-variable (GET with query params)
+
+        // Dummy data for charts
+        const monthlyGrossData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+            datasets: [{ label: 'Total Gross Salary', data: [50000, 52000, 48000, 55000], backgroundColor: 'rgba(0, 123, 255, 0.5)' }]
+        };
+        const monthlyCostData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+            datasets: [{ label: 'Total Cost', data: [70000, 72000, 68000, 75000], backgroundColor: 'rgba(255, 99, 132, 0.5)' }]
+        };
+        const fixedVariableData = {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+            datasets: [
+                { label: 'Fixed Salary', data: [40000, 41000, 38000, 43000], backgroundColor: 'rgba(23, 162, 184, 0.7)' },
+                { label: 'Variable Salary', data: [10000, 11000, 10000, 12000], backgroundColor: 'rgba(255, 193, 7, 0.7)' }
+            ]
+        };
+
+        // Update charts (conceptual, using a charting library like Chart.js)
+        updateChart(monthlyTotalGrossChartInstance, monthlyGrossData);
+        updateChart(monthlyTotalCostChartInstance, monthlyCostData);
+        updateChart(fixedVsVariableChartInstance, fixedVariableData, 'bar', true); // Stacked bar
+    }
+
+    // --- Charting Functions (Conceptual using Chart.js syntax) ---
+    function initializeCharts() {
+        // These would create new Chart instances
+        // Example for one chart:
+        // const ctxGross = document.getElementById('monthlyTotalGrossChart').getContext('2d');
+        // monthlyTotalGrossChartInstance = new Chart(ctxGross, { type: 'line', data: {}, options: {} });
+        // Same for monthlyTotalCostChartInstance (bar chart)
+        // And fixedVsVariableChartInstance (stacked bar chart)
+        console.log("Charts initialized (conceptual).");
+    }
+
+    function updateChart(chartInstance, data, type = 'line', stacked = false) {
+        if (chartInstance) {
+            // chartInstance.data = data;
+            // if (stacked) {
+            //    chartInstance.options.scales.x.stacked = true;
+            //    chartInstance.options.scales.y.stacked = true;
+            // }
+            // chartInstance.update();
+            console.log(`Chart updated (conceptual): ${chartInstance} with data`, data);
+        } else {
+            // If instance doesn't exist, create it (simplified here)
+            const chartId = getChartIdFromInstancePlaceholder(chartInstance); // Helper to map back
+            if (chartId) {
+                 const ctx = document.getElementById(chartId).getContext('2d');
+                 // new Chart(ctx, { type: type, data: data, options: { scales: { x: { stacked: stacked }, y: { stacked: stacked } } } });
+                 console.log(`Chart created and updated (conceptual): ${chartId} with data`, data, `type: ${type}`, `stacked: ${stacked}`);
+            }
+        }
+    }
+
+    // Helper to map conceptual instance name to actual canvas ID for the updateChart simulation
+    function getChartIdFromInstancePlaceholder(instancePlaceholder) {
+        if (instancePlaceholder === monthlyTotalGrossChartInstance) return 'monthlyTotalGrossChart';
+        if (instancePlaceholder === monthlyTotalCostChartInstance) return 'monthlyTotalCostChart';
+        if (instancePlaceholder === fixedVsVariableChartInstance) return 'fixedVsVariableChart';
+        return null;
+    }
+
+
+    // --- Utility Functions ---
+    function formatCurrency(value) {
+        if (value === null || value === undefined) return 'N/A';
+        return Number(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' }); // Adjust currency as needed
+    }
+
+    // Tooltip (basic example, a library might be better)
+    document.addEventListener('mouseover', function(event) {
+        const target = event.target.closest('[data-tooltip]');
+        if (target) {
+            const tooltipText = target.getAttribute('data-tooltip');
+            // Create and show tooltip element - this is a very basic implementation
+            let tooltip = document.getElementById('dynamic-tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'dynamic-tooltip';
+                tooltip.style.position = 'absolute';
+                tooltip.style.background = '#333';
+                tooltip.style.color = 'white';
+                tooltip.style.padding = '5px';
+                tooltip.style.borderRadius = '4px';
+                tooltip.style.fontSize = '0.9em';
+                tooltip.style.zIndex = '1000';
+                document.body.appendChild(tooltip);
+            }
+            tooltip.textContent = tooltipText;
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY + 10) + 'px';
+            tooltip.style.display = 'block';
+        }
+    });
+    document.addEventListener('mouseout', function(event) {
+        const target = event.target.closest('[data-tooltip]');
+        if (target) {
+            let tooltip = document.getElementById('dynamic-tooltip');
+            if (tooltip) {
+                tooltip.style.display = 'none';
+            }
+        }
+    });
+
+</script>
+
+</body>
+</html>

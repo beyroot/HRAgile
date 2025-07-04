@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Dashboard - Data Explorer</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .controls-container { margin-bottom: 20px; padding: 15px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        .controls-container input[type="text"], .controls-container select, .controls-container button { padding: 8px; border-radius: 4px; border: 1px solid #ddd; }
+        .table-container { margin-top: 20px; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow-x: auto; }
+        .export-options { margin-bottom: 15px; text-align: right; }
+        .export-options button { padding: 8px 15px; margin-left: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .export-options button:hover { background-color: #0056b3; }
+
+        table.interactive-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table.interactive-table th, table.interactive-table td { border: 1px solid #ddd; padding: 8px; text-align: left; white-space: nowrap; }
+        table.interactive-table th { background-color: #e9ecef; cursor: pointer; } /* Cursor for sort indication */
+        table.interactive-table th .sort-arrow { margin-left: 5px; }
+        table.interactive-table td.numeric { text-align: right; }
+
+        /* Conditional Formatting for Ratio */
+        .ratio-low { background-color: #d4edda; color: #155724; } /* Light green */
+        .ratio-medium { background-color: #fff3cd; color: #856404; } /* Light yellow */
+        .ratio-high { background-color: #f8d7da; color: #721c24; } /* Light red */
+
+        .pagination-controls { margin-top: 15px; text-align: center; }
+        .pagination-controls button, .pagination-controls span { margin: 0 5px; padding: 5px 10px; }
+
+        .column-chooser-container { margin-bottom:10px; }
+        .column-chooser-container label { margin-right: 5px; }
+        .column-chooser-container input[type="checkbox"] { margin-right: 10px; }
+
+    </style>
+    <!-- A JavaScript library for interactive tables (e.g., DataTables, AG-Grid) could be included here -->
+</head>
+<body>
+
+<div class="header">
+    <h1>Data Explorer</h1>
+</div>
+
+<div class="controls-container">
+    <div>
+        <label for="global-search">Search:</label>
+        <input type="text" id="global-search" placeholder="Search all fields...">
+    </div>
+    <div>
+        <label for="project-column-filter">Filter Project:</label>
+        <input type="text" id="project-column-filter" placeholder="Project name...">
+    </div>
+    <div>
+        <label for="date-column-filter-start">Filter Date Start:</label>
+        <input type="date" id="date-column-filter-start">
+    </div>
+    <div>
+        <label for="date-column-filter-end">Filter Date End:</label>
+        <input type="date" id="date-column-filter-end">
+    </div>
+    <button id="apply-table-filters">Apply Filters</button>
+    <button id="reset-table-filters">Reset Filters</button>
+</div>
+
+<div class="column-chooser-container">
+    <strong>Show/Hide Columns:</strong>
+    <!-- Checkboxes will be populated dynamically -->
+    <span id="column-chooser-options"></span>
+</div>
+
+<div class="table-container">
+    <div class="export-options">
+        <button id="export-table-csv" data-tooltip="Export current view as CSV">Export CSV</button>
+        <button id="export-table-pdf" data-tooltip="Export current view as PDF">Export PDF</button>
+    </div>
+    <div id="interactive-table-area">
+        <!-- Interactive table will be rendered here -->
+        <p>Loading data or apply filters to explore...</p>
+    </div>
+    <div class="pagination-controls">
+        <button id="prev-page">Previous</button>
+        <span id="page-info">Page 1 of 1</span>
+        <button id="next-page">Next</button>
+    </div>
+</div>
+
+<script>
+    // --- Configuration ---
+    const ALL_COLUMNS = [
+        { id: 'id', name: 'ID', type: 'number', visible: true, sortable: true, filterable: false },
+        { id: 'date', name: 'Date', type: 'date', visible: true, sortable: true, filterable: true },
+        { id: 'project', name: 'Project', type: 'string', visible: true, sortable: true, filterable: true },
+        { id: 'gross_fixed_salary', name: 'Gross Fixed Salary', type: 'currency', visible: true, sortable: true, filterable: false },
+        { id: 'gross_variable_salary', name: 'Gross Variable Salary', type: 'currency', visible: true, sortable: true, filterable: false },
+        { id: 'total_gross_salary', name: 'Total Gross Salary', type: 'currency', visible: true, sortable: true, filterable: false },
+        { id: 'total_cost', name: 'Total Cost', type: 'currency', visible: true, sortable: true, filterable: false },
+        { id: 'ratio', name: 'Ratio', type: 'number', visible: true, sortable: true, filterable: false, conditionalFormat: true }
+    ];
+    // Thresholds for conditional formatting of Ratio - will be fetched from API
+    let RATIO_THRESHOLDS = { low_threshold_upper_bound: 0.10, medium_threshold_upper_bound: 0.15 }; // Default values
+
+    // --- State ---
+    let currentPage = 1;
+    let totalPages = 1;
+    let currentSort = { column: 'date', direction: 'desc' };
+    let currentFilters = {}; // { globalSearch: '', project: '', dateStart: '', dateEnd: '' }
+    let visibleColumns = ALL_COLUMNS.filter(c => c.visible).map(c => c.id);
+
+
+    // --- DOM Elements ---
+    let globalSearchInput, projectColumnFilterInput, dateColumnFilterStartInput, dateColumnFilterEndInput;
+    let applyTableFiltersButton, resetTableFiltersButton;
+    let interactiveTableArea, paginationControls, pageInfo, prevPageButton, nextPageButton;
+    let exportCsvButton, exportPdfButton, columnChooserOptionsContainer;
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        globalSearchInput = document.getElementById('global-search');
+        projectColumnFilterInput = document.getElementById('project-column-filter');
+        dateColumnFilterStartInput = document.getElementById('date-column-filter-start');
+        dateColumnFilterEndInput = document.getElementById('date-column-filter-end');
+        applyTableFiltersButton = document.getElementById('apply-table-filters');
+        resetTableFiltersButton = document.getElementById('reset-table-filters');
+
+        interactiveTableArea = document.getElementById('interactive-table-area');
+        pageInfo = document.getElementById('page-info');
+        prevPageButton = document.getElementById('prev-page');
+        nextPageButton = document.getElementById('next-page');
+
+        exportCsvButton = document.getElementById('export-table-csv');
+        exportPdfButton = document.getElementById('export-table-pdf');
+        columnChooserOptionsContainer = document.getElementById('column-chooser-options');
+
+        // Populate Column Chooser
+        renderColumnChooser();
+
+        // Event Listeners
+        applyTableFiltersButton.addEventListener('click', () => { currentPage = 1; applyAndFetchTableData(); });
+        resetTableFiltersButton.addEventListener('click', resetFiltersAndFetch);
+        prevPageButton.addEventListener('click', () => { if (currentPage > 1) { currentPage--; applyAndFetchTableData(); }});
+        nextPageButton.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; applyAndFetchTableData(); }});
+        exportCsvButton.addEventListener('click', () => exportTable('csv'));
+        exportPdfButton.addEventListener('click', () => exportTable('pdf'));
+
+        interactiveTableArea.addEventListener('click', handleTableSort);
+
+        // Parse URL params for pre-filled filters (from drill-down)
+        parseUrlFilters();
+
+        // Initial data load
+        fetchRatioThresholdsAndThenData(); // Fetch settings first, then data
+    });
+
+    async function fetchRatioThresholdsAndThenData() {
+        console.log("Fetching ratio thresholds for Data Explorer...");
+        // API Call: GET /api/admin/settings/payroll_ratio_thresholds (or a general settings endpoint)
+        // For simulation, we can assume it's available or use defaults.
+        // In a real app, this might be:
+        // try {
+        //     const response = await fetch('/api/admin/settings/payroll_ratio_thresholds'); // Or a public settings endpoint
+        //     if (response.ok) {
+        //         const settings = await response.json();
+        //         if (settings && settings.setting_value) {
+        //             RATIO_THRESHOLDS = settings.setting_value;
+        //             console.log("Using fetched ratio thresholds:", RATIO_THRESHOLDS);
+        //         }
+        //     } else {
+        //         console.warn("Could not fetch ratio thresholds, using defaults.");
+        //     }
+        // } catch (error) {
+        //     console.error("Error fetching ratio thresholds:", error, "Using defaults.");
+        // }
+
+        // Simulate fetching (or use defaults if `window.currentRatioThresholds` was set by admin page simulation)
+        if (window.currentRatioThresholds) {
+            RATIO_THRESHOLDS = window.currentRatioThresholds;
+             console.log("Using 'globally' set ratio thresholds from admin simulation:", RATIO_THRESHOLDS);
+        } else {
+            // Fallback to default if not found (e.g. admin page wasn't visited in sim)
+            console.log("Ratio thresholds not found from admin sim, using hardcoded defaults for Data Explorer.");
+             RATIO_THRESHOLDS = { low_threshold_upper_bound: 0.10, medium_threshold_upper_bound: 0.15 };
+        }
+
+
+        // Now load table data
+        applyAndFetchTableData();
+    }
+
+    function renderColumnChooser() {
+        columnChooserOptionsContainer.innerHTML = '';
+        ALL_COLUMNS.forEach(col => {
+            if (!col.filterable) { // Only allow show/hide for main data columns, not ID or special action columns
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = col.id;
+                checkbox.checked = visibleColumns.includes(col.id);
+                checkbox.addEventListener('change', handleColumnVisibilityChange);
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(col.name));
+                columnChooserOptionsContainer.appendChild(label);
+            }
+        });
+    }
+
+    function handleColumnVisibilityChange() {
+        visibleColumns = Array.from(columnChooserOptionsContainer.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        applyAndFetchTableData(); // Re-render table with new column visibility
+    }
+
+    function parseUrlFilters() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('project')) projectColumnFilterInput.value = params.get('project');
+        if (params.has('startDate')) dateColumnFilterStartInput.value = params.get('startDate');
+        if (params.has('endDate')) dateColumnFilterEndInput.value = params.get('endDate');
+        // If month was passed, convert to startDate and endDate for the month
+        if (params.has('month')) { // e.g., month=2023-01
+            const [year, month] = params.get('month').split('-').map(Number);
+            dateColumnFilterStartInput.value = new Date(year, month - 1, 1).toISOString().split('T')[0];
+            dateColumnFilterEndInput.value = new Date(year, month, 0).toISOString().split('T')[0];
+        }
+        // Could add more params like global search, etc.
+        // After parsing, apply these filters
+        currentFilters = {
+            globalSearch: globalSearchInput.value,
+            project: projectColumnFilterInput.value,
+            dateStart: dateColumnFilterStartInput.value,
+            dateEnd: dateColumnFilterEndInput.value
+        };
+    }
+
+
+    function applyAndFetchTableData() {
+        currentFilters = {
+            globalSearch: globalSearchInput.value,
+            project: projectColumnFilterInput.value, // Specific column filter
+            dateStart: dateColumnFilterStartInput.value,
+            dateEnd: dateColumnFilterEndInput.value
+            // Add more specific column filters here if UI supports them
+        };
+        fetchTableData(currentPage, currentFilters, currentSort, visibleColumns);
+    }
+
+    function resetFiltersAndFetch() {
+        globalSearchInput.value = '';
+        projectColumnFilterInput.value = '';
+        dateColumnFilterStartInput.value = '';
+        dateColumnFilterEndInput.value = '';
+        currentFilters = {};
+        currentPage = 1;
+        currentSort = { column: 'date', direction: 'desc' }; // Reset sort
+        applyAndFetchTableData();
+    }
+
+    async function fetchTableData(page, filters, sort, columnsToShow) {
+        console.log("Fetching table data:", { page, filters, sort, columnsToShow });
+        interactiveTableArea.innerHTML = "<p>Loading data...</p>";
+
+        // API Endpoint: GET /api/data-explorer/payroll-items
+        // Params: page, limit, sortBy, sortDir, globalSearch, project, dateStart, dateEnd, columns=id,date,project...
+        try {
+            // const queryParams = new URLSearchParams({
+            //     page: page,
+            //     limit: 15, // Or make this configurable
+            //     sortBy: sort.column,
+            //     sortDir: sort.direction,
+            //     columns: columnsToShow.join(','),
+            //     ...filters // Spread filter values
+            // });
+            // const response = await fetch(`/api/data-explorer/payroll-items?${queryParams}`);
+            // if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            // const result = await response.json(); // Expects { data: [], totalItems: X, totalPages: Y, currentPage: Z }
+
+            // Simulate API response
+            const result = await simulateDataExplorerApiCall(page, filters, sort, columnsToShow);
+
+            if (result.data && result.data.length > 0) {
+                renderTable(result.data, columnsToShow);
+                totalPages = result.totalPages;
+                currentPage = result.currentPage;
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+                prevPageButton.disabled = currentPage === 1;
+                nextPageButton.disabled = currentPage === totalPages;
+            } else {
+                interactiveTableArea.innerHTML = "<p>No data available for the current filters.</p>";
+                pageInfo.textContent = "Page 0 of 0";
+                prevPageButton.disabled = true;
+                nextPageButton.disabled = true;
+            }
+        } catch (error) {
+            console.error("Error fetching table data:", error);
+            interactiveTableArea.innerHTML = `<p>Error loading data: ${error.message}.</p>`;
+        }
+    }
+
+    async function simulateDataExplorerApiCall(page, filters, sort, columnsToShow) {
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate delay
+        // This would be actual data from the `payroll` table
+        const fullDataset = [
+            { id: 1, date: '2023-01-15', project: 'Project Alpha', gross_fixed_salary: 5000, gross_variable_salary: 500, total_gross_salary: 5500, total_cost: 7000, ratio: 0.08 },
+            { id: 2, date: '2023-01-20', project: 'Project Beta', gross_fixed_salary: 4500, gross_variable_salary: 300, total_gross_salary: 4800, total_cost: 6000, ratio: 0.16 },
+            { id: 3, date: '2023-02-10', project: 'Project Alpha', gross_fixed_salary: 5200, gross_variable_salary: 600, total_gross_salary: 5800, total_cost: 7500, ratio: 0.11 },
+            { id: 4, date: '2023-02-15', project: 'Project Gamma', gross_fixed_salary: 6000, gross_variable_salary: 700, total_gross_salary: 6700, total_cost: 8500, ratio: 0.09 },
+            // ... more data for pagination and filtering simulation
+        ];
+
+        let filteredData = fullDataset.filter(item => {
+            let matches = true;
+            if (filters.globalSearch) {
+                matches = Object.values(item).some(val => String(val).toLowerCase().includes(filters.globalSearch.toLowerCase()));
+            }
+            if (filters.project && !String(item.project).toLowerCase().includes(filters.project.toLowerCase())) matches = false;
+            if (filters.dateStart && new Date(item.date) < new Date(filters.dateStart)) matches = false;
+            if (filters.dateEnd && new Date(item.date) > new Date(filters.dateEnd)) matches = false;
+            return matches;
+        });
+
+        // Sort
+        filteredData.sort((a, b) => {
+            let valA = a[sort.column];
+            let valB = b[sort.column];
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            let comparison = 0;
+            if (valA > valB) comparison = 1;
+            else if (valA < valB) comparison = -1;
+            return sort.direction === 'asc' ? comparison : comparison * -1;
+        });
+
+        const limit = 10; // Items per page
+        const totalItems = filteredData.length;
+        const calculatedTotalPages = Math.ceil(totalItems / limit);
+        const offset = (page - 1) * limit;
+        const paginatedData = filteredData.slice(offset, offset + limit);
+
+        return { data: paginatedData, totalItems, totalPages: calculatedTotalPages, currentPage: page };
+    }
+
+    function renderTable(data, columnsToRender) {
+        let html = `<table class="interactive-table"><thead><tr>`;
+        ALL_COLUMNS.forEach(colConfig => {
+            if (columnsToRender.includes(colConfig.id)) {
+                let sortArrow = '';
+                if (colConfig.sortable) {
+                    if (currentSort.column === colConfig.id) {
+                        sortArrow = currentSort.direction === 'asc' ? '&#9650;' : '&#9660;'; // Up/Down arrow
+                    }
+                }
+                html += `<th data-sortkey="${colConfig.id}" class="${colConfig.sortable ? 'sortable-header' : ''}">${colConfig.name} <span class="sort-arrow">${sortArrow}</span></th>`;
+            }
+        });
+        html += `</tr></thead><tbody>`;
+
+        data.forEach(row => {
+            html += `<tr>`;
+            ALL_COLUMNS.forEach(colConfig => {
+                if (columnsToRender.includes(colConfig.id)) {
+                    let cellValue = row[colConfig.id] !== null && row[colConfig.id] !== undefined ? row[colConfig.id] : 'N/A';
+                    let cellClass = '';
+                    if (colConfig.type === 'currency') {
+                        cellValue = formatCurrency(cellValue);
+                        cellClass = 'numeric';
+                    } else if (colConfig.type === 'number' && colConfig.id !== 'id') {
+                         cellValue = parseFloat(cellValue).toFixed(colConfig.id === 'ratio' ? 4 : 2);
+                         cellClass = 'numeric';
+                    }
+
+                    if (colConfig.id === 'ratio' && colConfig.conditionalFormat) {
+                        const ratioVal = parseFloat(row[colConfig.id]);
+                        if (!isNaN(ratioVal)) {
+                            // Use fetched/dynamic thresholds
+                            if (ratioVal <= RATIO_THRESHOLDS.low_threshold_upper_bound) {
+                                cellClass += ' ratio-low';
+                            } else if (ratioVal <= RATIO_THRESHOLDS.medium_threshold_upper_bound) {
+                                cellClass += ' ratio-medium';
+                            } else {
+                                cellClass += ' ratio-high';
+                            }
+                        }
+                    }
+                    html += `<td class="${cellClass}">${cellValue}</td>`;
+                }
+            });
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+        interactiveTableArea.innerHTML = html;
+    }
+
+    function handleTableSort(event) {
+        const header = event.target.closest('th.sortable-header');
+        if (header) {
+            const sortKey = header.dataset.sortkey;
+            if (currentSort.column === sortKey) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = sortKey;
+                currentSort.direction = 'asc';
+            }
+            currentPage = 1; // Reset to first page on new sort
+            applyAndFetchTableData();
+        }
+    }
+
+    function exportTable(format) {
+        // Actual implementation makes API call:
+        // GET /api/data-explorer/export?format=csv&sortBy=...&sortDir=...&columns=...&filters...
+        alert(`Exporting table data as ${format.toUpperCase()} with current filters and sort.\n(Conceptual - requires backend implementation for full dataset export)`);
+    }
+
+    // --- Utility Functions ---
+    function formatCurrency(value) {
+        if (value === 'N/A' || value === null || value === undefined) return 'N/A';
+        return Number(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' }); // Adjust
+    }
+
+    // Tooltip (basic example)
+    document.addEventListener('mouseover', function(event) { /* ... */ });
+    document.addEventListener('mouseout', function(event) { /* ... */ });
+
+</script>
+
+</body>
+</html>
